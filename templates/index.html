@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>날짜별 식단 통계</title>
+    <style>
+      body {
+        font-family: "Malgun Gothic", sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 20px;
+        background-color: #f4f7f6;
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+      }
+      h1,
+      h2 {
+        color: #333;
+        border-bottom: 2px solid #27ae60;
+        padding-bottom: 10px;
+      }
+
+      .form-box {
+        margin-bottom: 30px;
+        display: flex;
+        gap: 10px;
+      }
+      input {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+      }
+      button {
+        padding: 12px 20px;
+        background: #27ae60;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      /* 날짜별 요약 스타일 */
+      .stats-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 40px;
+        background: #e8f6ef;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .stats-table th,
+      .stats-table td {
+        padding: 15px;
+        text-align: center;
+        border: 1px solid #c8e6d1;
+      }
+      .stats-table th {
+        background: #27ae60;
+        color: white;
+      }
+      .high-cal {
+        color: #e74c3c;
+        font-weight: bold;
+      }
+
+      /* 상세 목록 스타일 */
+      .list-table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      .list-table th,
+      .list-table td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid #eee;
+      }
+      .btn-del {
+        color: #ff4757;
+        text-decoration: none;
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🍱 식단 매니저</h1>
+
+      <form action="/" method="POST" class="form-box">
+        <input
+          type="text"
+          name="food_name"
+          placeholder="오늘 무엇을 드셨나요? (예: 삼겹살)"
+          required
+        />
+        <button type="submit">등록 및 조회</button>
+      </form>
+
+      <h2>📅 날짜별 섭취 요약</h2>
+      <table class="stats-table">
+        <thead>
+          <tr>
+            <th>날짜</th>
+            <th>총 섭취 칼로리</th>
+            <th>상태</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for stat in daily_stats %}
+          <tr>
+            <td>{{ stat.date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ stat.total_kcal }} kcal</td>
+            <td>
+              {% if stat.total_kcal > 2500 %}
+              <span class="high-cal">⚠️ 과식</span>
+              {% else %}
+              <span style="color: #27ae60">✅ 적정</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <h2>📝 상세 기록</h2>
+      <table class="list-table">
+        <thead>
+          <tr>
+            <th>시간</th>
+            <th>음식명</th>
+            <th>칼로리</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for meal in meals %}
+          <tr>
+            <td>{{ meal.date_posted.strftime('%H:%M') }}</td>
+            <td>{{ meal.food_name }}</td>
+            <td>{{ meal.calories }} kcal</td>
+            <td>
+              <a
+                href="{{ url_for('delete_meal', id=meal.id) }}"
+                class="btn-del"
+                onclick="return confirm('삭제할까요?');"
+                >삭제</a
+              >
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </body>
+</html>
