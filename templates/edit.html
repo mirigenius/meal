@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <title>기록 수정</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #f4f7f6;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+      }
+      .edit-card {
+        background: white;
+        padding: 40px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+        text-align: center;
+      }
+      h2 {
+        margin-bottom: 20px;
+        color: #333;
+      }
+      .info {
+        background: #f8f9fa;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 25px;
+        color: #666;
+      }
+      input[type="datetime-local"] {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        box-sizing: border-box;
+        font-size: 1em;
+      }
+      .btn-group {
+        display: flex;
+        gap: 10px;
+      }
+      button {
+        flex: 1;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+      .btn-save {
+        background: #34495e;
+        color: white;
+      }
+      .btn-cancel {
+        background: #eee;
+        color: #333;
+        text-decoration: none;
+        display: inline-block;
+        line-height: 40px;
+        flex: 1;
+        border-radius: 6px;
+        font-size: 0.9em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="edit-card">
+      <h2>✏️ 기록 수정</h2>
+      <div class="info">
+        <strong>항목:</strong> {{ item.food_name if type == 'meal' else
+        item.ex_name }}<br />
+        <strong>현재 시간:</strong> {{ item.date_posted.strftime('%Y-%m-%d
+        %H:%M') }}
+      </div>
+
+      <form method="POST">
+        <label
+          style="
+            display: block;
+            text-align: left;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+            color: #888;
+          "
+          >새로운 날짜 및 시간 선택:</label
+        >
+        <input
+          type="datetime-local"
+          name="new_date"
+          value="{{ item.date_posted.strftime('%Y-%m-%dT%H:%M') }}"
+          required
+        />
+
+        <div class="btn-group">
+          <a href="/" class="btn-cancel">취소</a>
+          <button type="submit" class="btn-save">변경사항 저장</button>
+        </div>
+      </form>
+    </div>
+  </body>
+</html>

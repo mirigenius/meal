@@ -14,13 +14,14 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://postgres:postgres@localhos
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
-# [기초대사량]
+# [기초대사량 설정]
 BMR = 1247
 
+# [시간 설정] 한국 표준시(KST)
 def get_kst_now():
     return datetime.now(pytz.timezone('Asia/Seoul'))
 
-# --- [DB 모델] ---
+# --- [DB 모델 정의] ---
 class Meal(db.Model):
     __tablename__ = 'meal'
     id = db.Column(db.Integer, primary_key=True)
@@ -35,7 +36,7 @@ class Exercise(db.Model):
     ex_calories = db.Column(db.Integer, nullable=False)
     date_posted = db.Column(db.DateTime, default=get_kst_now)
 
-# --- [크롤링 함수] ---
+# --- [네이버 크롤링 함수] ---
 def get_cal_from_naver(name, is_exercise=False):
     suffix = "소모+칼로리" if is_exercise else "칼로리"
     search_url = f"https://search.naver.com/search.naver?query={name}+{suffix}"
@@ -48,7 +49,7 @@ def get_cal_from_naver(name, is_exercise=False):
     except:
         return 0
 
-# --- [메인 라우트] ---
+# --- [메인 페이지] ---
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -62,55 +63,54 @@ def index():
         db.session.commit()
         return redirect(url_for('index'))
 
-    # --- [날짜 필터링 로직] ---
+    # 날짜 필터링
     kst_now = get_kst_now()
     default_to = kst_now.date()
     default_from = default_to - timedelta(days=6)
-
     from_str = request.args.get('from_date', default_from.strftime('%Y-%m-%d'))
     to_str = request.args.get('to_date', default_to.strftime('%Y-%m-%d'))
-
     from_date = datetime.strptime(from_str, '%Y-%m-%d').date()
     to_date = datetime.strptime(to_str, '%Y-%m-%d').date()
 
-    # --- [DB 조회 (날짜 구간 적용)] ---
+    # 데이터 조회
     m_stats = db.session.query(cast(Meal.date_posted, Date).label('d'), func.sum(Meal.calories).label('s'))\
                 .filter(cast(Meal.date_posted, Date) >= from_date, cast(Meal.date_posted, Date) <= to_date)\
                 .group_by(cast(Meal.date_posted, Date)).all()
-                
     e_stats = db.session.query(cast(Exercise.date_posted, Date).label('d'), func.sum(Exercise.ex_calories).label('s'))\
                 .filter(cast(Exercise.date_posted, Date) >= from_date, cast(Exercise.date_posted, Date) <= to_date)\
                 .group_by(cast(Exercise.date_posted, Date)).all()
 
-    m_all = Meal.query.filter(cast(Meal.date_posted, Date) >= from_date, cast(Meal.date_posted, Date) <= to_date).order_by(Meal.date_posted.desc()).all()
-    e_all = Exercise.query.filter(cast(Exercise.date_posted, Date) >= from_date, cast(Exercise.date_posted, Date) <= to_date).order_by(Exercise.date_posted.desc()).all()
-
-    # --- [통합 리포트 생성 (수정된 부분)] ---
+    # 통합 리포트 (기록이 있는 날만)
     report = {}
-    
-    # 섭취 데이터가 있는 날짜만 딕셔너리에 추가/업데이트
-    for d, s in m_stats: 
-        date_str = d.strftime('%Y-%m-%d')
-        report.setdefault(date_str, {'in': 0, 'out': 0, 'bmr': BMR})['in'] = s
-        
-    # 운동 데이터가 있는 날짜만 딕셔너리에 추가/업데이트
-    for d, s in e_stats: 
-        date_str = d.strftime('%Y-%m-%d')
-        report.setdefault(date_str, {'in': 0, 'out': 0, 'bmr': BMR})['out'] = s
-
+    for d, s in m_stats: report.setdefault(d.strftime('%Y-%m-%d'), {'in': 0, 'out': 0, 'bmr': BMR})['in'] = s
+    for d, s in e_stats: report.setdefault(d.strftime('%Y-%m-%d'), {'in': 0, 'out': 0, 'bmr': BMR})['out'] = s
     sorted_report = sorted(report.items(), reverse=True)
 
-    # --- [상세 내역 그룹화] ---
+    # 상세 내역
+    m_all = Meal.query.filter(cast(Meal.date_posted, Date) >= from_date, cast(Meal.date_posted, Date) <= to_date).order_by(Meal.date_posted.desc()).all()
+    e_all = Exercise.query.filter(cast(Exercise.date_posted, Date) >= from_date, cast(Exercise.date_posted, Date) <= to_date).order_by(Exercise.date_posted.desc()).all()
     g_meals = {}; g_exs = {}
     for m in m_all: g_meals.setdefault(m.date_posted.strftime('%Y-%m-%d'), []).append(m)
     for e in e_all: g_exs.setdefault(e.date_posted.strftime('%Y-%m-%d'), []).append(e)
 
-    return render_template('index.html', 
-                           m_stats=m_stats, e_stats=e_stats, 
-                           g_meals=g_meals, g_exs=g_exs, 
-                           summary=sorted_report, bmr=BMR,
-                           from_date=from_str, to_date=to_str)
+    return render_template('index.html', m_stats=m_stats, e_stats=e_stats, g_meals=g_meals, g_exs=g_exs, summary=sorted_report, bmr=BMR, from_date=from_str, to_date=to_str)
 
+# --- [기록 수정 라우트] ---
+@app.route('/edit/<type>/<int:id>', methods=['GET', 'POST'])
+def edit_item(type, id):
+    target = Meal.query.get(id) if type == 'meal' else Exercise.query.get(id)
+    
+    if request.method == 'POST':
+        new_date_str = request.form.get('new_date') # "2026-04-22T14:30" 형식
+        if new_date_str:
+            # 문자열을 파이썬 datetime 객체로 변환하여 저장
+            target.date_posted = datetime.strptime(new_date_str, '%Y-%m-%dT%H:%M')
+            db.session.commit()
+        return redirect(url_for('index'))
+    
+    return render_template('edit.html', item=target, type=type)
+
+# --- [기록 삭제 라우트] ---
 @app.route('/delete/<type>/<int:id>')
 def delete_item(type, id):
     target = Meal.query.get(id) if type == 'meal' else Exercise.query.get(id)
